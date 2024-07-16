@@ -14,6 +14,7 @@ func AuthMiddleware() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		// Get token from Authorization header
 		tokenString := ctx.GetHeader("Authorization")
+		
 
 		// Check if token is missing
 		if tokenString == "" {

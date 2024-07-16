@@ -17,13 +17,24 @@ import (
 // @Description Register a new user with username and password and email
 // @Accept json
 // @Produce json
-// @Param input body models.RegisterRequest true "Registration details"
-// @Success 201 {object} models.Success
-// @Failure 400 {object} models.Failed
-// @Failure 500 {object} models.Failed
-// @Router /register [post]
+// @Param input body genproto.RegisterRequest true "Registration details" 
+// @Success 201 {object} genproto.RegisterResponse
+// @Failure 400 {object} string "bad request"
+// @Failure 500 {object} string "internal status error"
+// @Router /user/register [post]
 func (h *Handler) Register(ctx *gin.Context) {
 	var request models.RegisterRequest
+	if h.Log == nil {
+        fmt.Println("Logger is nil")
+        ctx.JSON(http.StatusInternalServerError, models.Failed{Message: "Internal server error"})
+        return
+    }
+
+    if h.UsersService == nil {
+        h.Log.Error("UsersService is nil")
+        ctx.JSON(http.StatusInternalServerError, models.Failed{Message: "Internal server error"})
+        return
+    }
 	if err := ctx.ShouldBindJSON(&request); err != nil {
 		h.Log.Error("Failed to bind JSON", zap.Error(err))
 		ctx.JSON(http.StatusBadRequest, models.Failed{Message: "Invalid request payload", Error: err.Error()})
@@ -55,7 +66,7 @@ func (h *Handler) Register(ctx *gin.Context) {
 // @Success 200 {object} models.Tokens
 // @Failure 400 {object} models.Failed
 // @Failure 500 {object} models.Failed
-// @Router /login [post]
+// @Router /user/login [post]
 func (h *Handler) Login(ctx *gin.Context) {
 	var request models.LoginRequest
 	if err := ctx.ShouldBindJSON(&request); err != nil {
@@ -82,89 +93,6 @@ func (h *Handler) Login(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, models.Tokens{AccessToken: tokens.AccessToken, RefreshToken: tokens.RefreshToken})
-}
-
-// Profile retrieves user profile details.
-// @Summary Get user profile
-// @Description Retrieve user profile details
-// @Accept json
-// @Produce json
-// @Param user_id path string true "User ID"
-// @Success 200 {object} models.ProfileResponse
-// @Failure 401 {object} models.Failed
-// @Failure 500 {object} models.Failed
-// @Router /profile/{user_id} [get]
-func (h *Handler) Profile(ctx *gin.Context) {
-	userID := ctx.Param("user_id")
-
-	claims, err := h.ValidateToken(ctx)
-	if err != nil {
-		ctx.JSON(http.StatusUnauthorized, models.Failed{Message: "Unauthorized", Error: err.Error()})
-		return
-	}
-
-	if claims["sub"] != userID {
-		ctx.JSON(http.StatusUnauthorized, models.Failed{Message: "Unauthorized access to profile"})
-		return
-	}
-
-	request := &genproto.ProfileRequest{UserId: userID}
-	response, err := h.UsersService.Profile(ctx, request)
-	if err != nil {
-		h.Log.Error("Failed to fetch profile", zap.Error(err))
-		ctx.JSON(http.StatusInternalServerError, models.Failed{Message: "Failed to fetch profile", Error: err.Error()})
-		return
-	}
-
-	ctx.JSON(http.StatusOK, response)
-}
-
-// UpdateProfile updates user profile details.
-// @Summary Update user profile
-// @Description Update user profile details
-// @Accept json
-// @Produce json
-// @Param user_id path string true "User ID"
-// @Param input body models.UpdateProfileRequest true "Update details"
-// @Success 200 {object} models.ProfileResponse
-// @Failure 400 {object} models.Failed
-// @Failure 401 {object} models.Failed
-// @Failure 500 {object} models.Failed
-// @Router /profile/{user_id} [put]
-func (h *Handler) UpdateProfile(ctx *gin.Context) {
-	userID := ctx.Param("user_id")
-
-	claims, err := h.ValidateToken(ctx)
-	if err != nil {
-		ctx.JSON(http.StatusUnauthorized, models.Failed{Message: "Unauthorized", Error: err.Error()})
-		return
-	}
-
-	if claims["sub"] != userID {
-		ctx.JSON(http.StatusUnauthorized, models.Failed{Message: "Unauthorized access to profile"})
-		return
-	}
-
-	var request models.UpdateProfileRequest
-	if err := ctx.ShouldBindJSON(&request); err != nil {
-		h.Log.Error("Failed to bind JSON", zap.Error(err))
-		ctx.JSON(http.StatusBadRequest, models.Failed{Message: "Invalid request payload", Error: err.Error()})
-		return
-	}
-
-	request.UserID = userID
-	response, err := h.UsersService.UpdateProfile(ctx, &genproto.UpdateProfileRequest{
-		Id:   request.UserID,
-		FullName: request.FullName,
-		Bio:      request.Bio,
-	})
-	if err != nil {
-		h.Log.Error("Failed to update profile", zap.Error(err))
-		ctx.JSON(http.StatusInternalServerError, models.Failed{Message: "Failed to update profile", Error: err.Error()})
-		return
-	}
-
-	ctx.JSON(http.StatusOK, response)
 }
 
 // RefreshToken refreshes user token with refresh token.

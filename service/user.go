@@ -4,15 +4,14 @@ import (
 	pb "Auth-Service/genproto"
 	"Auth-Service/storage/postgres"
 	"context"
+
+	"go.uber.org/zap"
 )
 
 type UserService struct {
 	UserRepo *postgres.UserRepository
 	pb.UnimplementedUserServiceServer
-}
-
-func NewContentService(repo *postgres.UserRepository) *UserService {
-	return &UserService{UserRepo: repo}
+	Log *zap.Logger
 }
 
 func (service *UserService) Register(ctx context.Context, in *pb.RegisterRequest) (*pb.RegisterResponse, error) {

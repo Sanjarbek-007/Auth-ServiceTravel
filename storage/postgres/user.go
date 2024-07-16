@@ -17,34 +17,35 @@ type UserRepository struct {
 	Db *sql.DB
 }
 
-var logger *zap.Logger
 
 func NewUserRepository(db *sql.DB) *UserRepository {
 	return &UserRepository{Db: db}
 }
 
 func (repo *UserRepository) Register(request *pb.RegisterRequest) (*pb.RegisterResponse, error) {
-	var id, createdAt string
-	err := repo.Db.QueryRow(
-		`INSERT INTO
-		users (username, email, password, full_name) 
-		VALUES ($1, $2, $3, $4) RETURNING id, created_at`,
-		request.Username, request.Email, request.Password, request.FullName,
-	).Scan(&id, &createdAt)
-	if err != nil {
-		logger.Error("Error inserting user:")
-		return nil, err
-	}
+    if repo.Db == nil {
+        return nil, fmt.Errorf("database connection is not initialized")
+    }
 
-	response := &pb.RegisterResponse{
-		Id:        id,
-		Username:  request.Username,
-		Email:     request.Email,
-		FullName:  request.FullName,
-		CreatedAt: createdAt,
-	}
+    var id, createdAt string
+    err := repo.Db.QueryRow(
+        `INSERT INTO users (username, email, password, full_name) 
+         VALUES ($1, $2, $3, $4) RETURNING id, created_at`,
+        request.Username, request.Email, request.Password, request.FullName,
+    ).Scan(&id, &createdAt)
+    if err != nil {
+        return nil, err
+    }
 
-	return response, nil
+    response := &pb.RegisterResponse{
+        Id:        id,
+        Username:  request.Username,
+        Email:     request.Email,
+        FullName:  request.FullName,
+        CreatedAt: createdAt,
+    }
+
+    return response, nil
 }
 
 func (repo *UserRepository) Login(request *pb.LoginRequest) (*pb.LoginResponse, error) {
@@ -92,7 +93,6 @@ func (repo *UserRepository) UpdateProfile(ctx context.Context, request *pb.Updat
 	)
 
 	if err != nil {
-		logger.Error("error updating profile in database")
 		return nil, fmt.Errorf("error updating profile: %v", err)
 	}
 
@@ -225,13 +225,11 @@ func (repo *UserRepository) Logout(ctx context.Context, request *pb.LogoutReques
 
 	result, err := repo.Db.Exec(query, request.UserId)
 	if err != nil {
-		logger.Error("error updating user token")
 		return nil, fmt.Errorf("failed to update user token: %v", err)
 	}
 
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		logger.Error("error getting rows affected")
 		return nil, fmt.Errorf("failed to get rows affected: %v", err)
 	}
 
@@ -250,7 +248,6 @@ func (repo *UserRepository) GetFollowersByUserID(ctx context.Context, request *p
 		request.UserId,
 	)
 	if err != nil {
-		logger.Error("Error querying followers")
 		return nil, err
 	}
 	defer rows.Close()
@@ -259,7 +256,6 @@ func (repo *UserRepository) GetFollowersByUserID(ctx context.Context, request *p
 	for rows.Next() {
 		var id, username, fullName string
 		if err := rows.Scan(&id, &username, &fullName); err != nil {
-			logger.Error("Error scanning follower row")
 			return nil, err
 		}
 		follower := &pb.Followers{
@@ -271,7 +267,6 @@ func (repo *UserRepository) GetFollowersByUserID(ctx context.Context, request *p
 	}
 
 	if err := rows.Err(); err != nil {
-		logger.Error("Error iterating over follower rows")
 		return nil, err
 	}
 

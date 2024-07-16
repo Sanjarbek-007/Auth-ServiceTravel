@@ -11,9 +11,3 @@ type Handler struct {
 	Log          *zap.Logger
 }
 
-func NewHandler(user genproto.UserServiceClient, l *zap.Logger) *Handler {
-	return &Handler{
-		UsersService: user,
-		Log:          l,
-	}
-}
