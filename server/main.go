@@ -1,37 +1,37 @@
 package main
 
 import (
-	"Auth-Service/config"
-	pb "Auth-Service/genproto"
-	"Auth-Service/service"
-	"Auth-Service/storage/postgres"
+	"Auth-Service/api"
+	l "Auth-Service/logger"
 	"log"
-	"net"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 var logger *zap.Logger
 
+func initLog() {
+	log, err := l.NewLogger()
+	if err != nil {
+		panic(err)
+	}
+	logger = log
+}
+
 func main() {
-	cnf := config.Load()
-
-	db, err := postgres.ConnectionDb()
+	initLog()
+	conn1, err := grpc.NewClient(":8081", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		logger.Fatal("error connecting to database")
+		log.Fatal("error")
 	}
 
-	grpcServer := grpc.NewServer()
-	pb.RegisterUserServiceServer(grpcServer, service.NewContentService(postgres.NewUserRepository(db)))
-
-	listen, err := net.Listen("tcp", cnf.HTTPPort)
+	router := api.NewRouter(conn1)
+	err = router.Run(":8080")
 	if err != nil {
-		logger.Fatal("error setting up TCP listener")
+		logger.Error("error is api get way connection port")
+		log.Fatal("error is api get way connection port")
 	}
 
-	log.Printf("Starting gRPC server on port %s...", cnf.HTTPPort)
-	if err := grpcServer.Serve(listen); err != nil {
-		logger.Fatal("error serving gRPC")
-	}
 }
