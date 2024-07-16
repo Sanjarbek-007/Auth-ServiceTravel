@@ -17,3 +17,6 @@ mig-create:
 
 mig-insert:
 	migrate create -ext sql -dir migrations -seq insert_table
+
+swag-init:
+	swag init -g api/router.go --output api/docs
