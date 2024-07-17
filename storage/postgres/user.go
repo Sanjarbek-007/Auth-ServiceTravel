@@ -178,10 +178,11 @@ func (repo *UserRepository) GetUsers(ctx context.Context, request *pb.GetUsersRe
 }
 
 func (repo *UserRepository) DeleteUser(ctx context.Context, request *pb.DeleteUserRequest) (*pb.DeleteUserResponse, error) {
+	time := time.Now().Unix()
 	_, err := repo.Db.ExecContext(
 		ctx,
-		"UPDATE users SET deleted_at=CURRENT_TIMESTAMP WHERE id=$1 AND deleted_at = 0",
-		request.Id,
+		"UPDATE users SET deleted_at=$1 WHERE id=$2 AND deleted_at = 0",
+		time, request.Id,
 	)
 	if err != nil {
 		return nil, err
