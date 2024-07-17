@@ -1,29 +1,5 @@
 basePath: /
 definitions:
-  genproto.RegisterRequest:
-    properties:
-      email:
-        type: string
-      full_name:
-        type: string
-      password:
-        type: string
-      username:
-        type: string
-    type: object
-  genproto.RegisterResponse:
-    properties:
-      created_at:
-        type: string
-      email:
-        type: string
-      full_name:
-        type: string
-      id:
-        type: string
-      username:
-        type: string
-    type: object
   models.Failed:
     properties:
       error:
@@ -41,11 +17,6 @@ definitions:
     - password
     - username
     type: object
-  models.Logout:
-    properties:
-      message:
-        type: string
-    type: object
   models.ProfileResponse:
     properties:
       bio:
@@ -58,13 +29,6 @@ definitions:
         type: string
       username:
         type: string
-    type: object
-  models.RefreshRequest:
-    properties:
-      refresh_token:
-        type: string
-    required:
-    - refresh_token
     type: object
   models.Tokens:
     properties:
@@ -87,30 +51,113 @@ definitions:
     - email
     - full_name
     type: object
+  users.CheckRefreshTokenRequest:
+    properties:
+      refresh_token:
+        type: string
+    type: object
+  users.RegisterRequest:
+    properties:
+      email:
+        type: string
+      full_name:
+        type: string
+      password:
+        type: string
+      username:
+        type: string
+    type: object
+  users.RegisterResponse:
+    properties:
+      created_at:
+        type: string
+      email:
+        type: string
+      full_name:
+        type: string
+      id:
+        type: string
+      username:
+        type: string
+    type: object
+  users.Token:
+    properties:
+      access_token:
+        type: string
+      refresh_token:
+        type: string
+    type: object
 host: localhost:8081
 info:
   contact: {}
   description: API service
   version: "1.0"
 paths:
-  /logout:
+  /auth/login:
     post:
-      description: Logout a user by invalidating token
+      consumes:
+      - application/json
+      description: Login a user with username and password
+      parameters:
+      - description: Login details
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/models.LoginRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.Logout'
-        "401":
-          description: Unauthorized
+            $ref: '#/definitions/models.Tokens'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.Failed'
+        "500":
+          description: Internal Server Error
           schema:
             $ref: '#/definitions/models.Failed'
       security:
-      - BearerAuth: []
-      summary: Logout a user
-  /profile/{user_id}:
+      - ApiKeyAuth: []
+      summary: Login a user
+      tags:
+      - Auth
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Register a new user with username and password and email
+      parameters:
+      - description: Registration details
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/users.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/users.RegisterResponse'
+        "400":
+          description: bad request
+          schema:
+            type: string
+        "500":
+          description: internal status error
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: Register a new user
+      tags:
+      - Auth
+  /user/profile/{user_id}:
     get:
       consumes:
       - application/json
@@ -136,7 +183,12 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/models.Failed'
+      security:
+      - ApiKeyAuth: []
       summary: Get user profile
+      tags:
+      - User
+  /user/profileUpdate/{user_id}:
     put:
       consumes:
       - application/json
@@ -172,91 +224,70 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/models.Failed'
+      security:
+      - ApiKeyAuth: []
       summary: Update user profile
-  /refresh-token:
+      tags:
+      - User
+  /user/refresh:
     post:
-      consumes:
-      - application/json
-      description: Refresh user token with refresh token
+      description: it changes your access token
       parameters:
-      - description: Refresh token details
+      - description: token
         in: body
-        name: input
+        name: userinfo
         required: true
         schema:
-          $ref: '#/definitions/models.RefreshRequest'
-      produces:
-      - application/json
+          $ref: '#/definitions/users.CheckRefreshTokenRequest'
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.Tokens'
+            $ref: '#/definitions/users.Token'
         "400":
-          description: Bad Request
+          description: Invalid date
           schema:
-            $ref: '#/definitions/models.Failed'
+            type: string
+        "401":
+          description: Invalid token
+          schema:
+            type: string
         "500":
-          description: Internal Server Error
+          description: error while reading from server
           schema:
-            $ref: '#/definitions/models.Failed'
-      summary: Refresh user token
-  /user/login:
-    post:
-      consumes:
-      - application/json
-      description: Login a user with username and password
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: Refresh token
+      tags:
+      - auth
+  /user/users/{user_id}:
+    delete:
+      description: you can delete your profile
       parameters:
-      - description: Login details
-        in: body
-        name: input
+      - description: user_id
+        in: path
+        name: user_id
         required: true
-        schema:
-          $ref: '#/definitions/models.LoginRequest'
-      produces:
-      - application/json
+        type: string
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.Tokens'
+            type: string
         "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/models.Failed'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/models.Failed'
-      summary: Login a user
-  /user/register:
-    post:
-      consumes:
-      - application/json
-      description: Register a new user with username and password and email
-      parameters:
-      - description: Registration details
-        in: body
-        name: input
-        required: true
-        schema:
-          $ref: '#/definitions/genproto.RegisterRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/genproto.RegisterResponse'
-        "400":
-          description: bad request
+          description: Invalid data
           schema:
             type: string
         "500":
-          description: internal status error
+          description: error while reading from server
           schema:
             type: string
-      summary: Register a new user
+      security:
+      - ApiKeyAuth: []
+      summary: delete user
+      tags:
+      - User
 securityDefinitions:
   BearerAuth:
     in: header

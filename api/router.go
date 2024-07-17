@@ -5,6 +5,8 @@ import (
 	"Auth-Service/api/handlers"
 	"Auth-Service/api/middleware"
 
+	// "Auth-Service/api/middleware"
+
 	"github.com/gin-gonic/gin"
 	files "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
@@ -23,16 +25,18 @@ func NewRouter(handler *handlers.Handler) *gin.Engine {
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(files.Handler))
 
 	// API routes
-	user := r.Group("/user")
+	user := r.Group("/auth")
 	{
 		user.POST("/register", handler.Register)
 		user.POST("/login", handler.Login)
 	}
 	auth := r.Group("/user")
-	auth.Use(middleware.AuthMiddleware())
+	auth.Use(middleware.AuthMiddleware)
 	{
-		auth.POST("/refresh-token", handler.RefreshToken)
-		auth.POST("/logout", handler.Logout)
+		auth.POST("/refresh", handler.Refresh)
+    	auth.GET("/profile/:user_id", handler.Profile)
+		auth.PUT("/profileUpdate/:user_id", handler.UpdateProfile)
+    	auth.DELETE("/users/:user_id", handler.Delete)
 	}
 
 	return r

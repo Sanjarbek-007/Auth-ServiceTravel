@@ -13,9 +13,10 @@ CREATE TABLE users (
 );
 
 
-CREATE TABLE follower (
-    id UUID PRIMARY KEY,
-    user_id UUID NOT NULL,
-    follower_id UUID NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+
+CREATE TABLE IF NOT EXISTS followers (
+    follower_id UUID REFERENCES users(id),
+    following_id UUID REFERENCES users(id),
+    followed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (follower_id, following_id)
 );

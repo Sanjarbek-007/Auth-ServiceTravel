@@ -5,46 +5,40 @@ import (
 	"net/http"
 	"strings"
 
-	"Auth-Service/genproto"
+	"Auth-Service/api/token"
+	"Auth-Service/genproto/users"
+	"Auth-Service/models"
+
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt"
-	t "Auth-Service/api/token"
+	"github.com/google/uuid"
 	"go.uber.org/zap"
-	"Auth-Service/models"
 )
+
 // Register handles user registration.
 // @Summary Register a new user
 // @Description Register a new user with username and password and email
+// @Security ApiKeyAuth
+// @Tags Auth
 // @Accept json
 // @Produce json
-// @Param input body genproto.RegisterRequest true "Registration details" 
-// @Success 201 {object} genproto.RegisterResponse
+// @Param input body users.RegisterRequest true "Registration details"
+// @Success 201 {object} users.RegisterResponse
 // @Failure 400 {object} string "bad request"
 // @Failure 500 {object} string "internal status error"
-// @Router /user/register [post]
+// @Router /auth/register [post]
 func (h *Handler) Register(ctx *gin.Context) {
 	var request models.RegisterRequest
-	if h.Log == nil {
-        fmt.Println("Logger is nil")
-        ctx.JSON(http.StatusInternalServerError, models.Failed{Message: "Internal server error"})
-        return
-    }
-
-    if h.UsersService == nil {
-        h.Log.Error("UsersService is nil")
-        ctx.JSON(http.StatusInternalServerError, models.Failed{Message: "Internal server error"})
-        return
-    }
 	if err := ctx.ShouldBindJSON(&request); err != nil {
 		h.Log.Error("Failed to bind JSON", zap.Error(err))
 		ctx.JSON(http.StatusBadRequest, models.Failed{Message: "Invalid request payload", Error: err.Error()})
 		return
 	}
 
-	response, err := h.UsersService.Register(ctx, &genproto.RegisterRequest{
+	response, err := h.UsersRepo.Register(ctx, &users.RegisterRequest{
 		Username: request.Username,
 		Password: request.Password,
-		Email: request.Email,
+		Email:    request.Email,
 		FullName: request.FullName,
 	})
 	if err != nil {
@@ -56,92 +50,88 @@ func (h *Handler) Register(ctx *gin.Context) {
 	ctx.JSON(http.StatusCreated, models.Success{Message: "User created successfully", Data: map[string]string{"user_id": response.Id}})
 }
 
-
 // Login handles user login.
 // @Summary Login a user
 // @Description Login a user with username and password
+// @Security ApiKeyAuth
+// @Tags Auth
 // @Accept json
 // @Produce json
 // @Param input body models.LoginRequest true "Login details"
 // @Success 200 {object} models.Tokens
 // @Failure 400 {object} models.Failed
 // @Failure 500 {object} models.Failed
-// @Router /user/login [post]
-func (h *Handler) Login(ctx *gin.Context) {
-	var request models.LoginRequest
-	if err := ctx.ShouldBindJSON(&request); err != nil {
-		h.Log.Error("Failed to bind JSON", zap.Error(err))
-		ctx.JSON(http.StatusBadRequest, models.Failed{Message: "Invalid request payload", Error: err.Error()})
-		return
+// @Router /auth/login [post]
+func (h Handler) Login(ctx *gin.Context) {
+	h.Log.Info("Login is working")
+	req := users.LoginRequest{}
+
+	if err := ctx.BindJSON(&req); err != nil {
+		h.Log.Error(err.Error())
+		ctx.JSON(http.StatusBadRequest, gin.H{"error1": err.Error()})
 	}
 
-	response, err := h.UsersService.Login(ctx, &genproto.LoginRequest{
-		Username: request.Username,
-		Password: request.Password,
-	})
+	res, err := h.UsersRepo.Login(ctx, &req)
 	if err != nil {
-		h.Log.Error("Failed to login user", zap.Error(err))
-		ctx.JSON(http.StatusInternalServerError, models.Failed{Message: "Failed to login user", Error: err.Error()})
+		h.Log.Error(err.Error())
+		ctx.JSON(500, gin.H{"error2": err.Error()})
 		return
 	}
+	var toke users.Token
+	err = token.GeneratedAccessJWTToken(res, &toke)
 
-	tokens, err := t.GENERATEJWTToken(response)
 	if err != nil {
-		h.Log.Error("Failed to generate token", zap.Error(err))
-		ctx.JSON(http.StatusInternalServerError, models.Failed{Message: "Failed to generate token", Error: err.Error()})
-		return
+		h.Log.Error(err.Error())
+		ctx.JSON(500, gin.H{"error3": err.Error()})
+	}
+	err = token.GeneratedRefreshJWTToken(res, &toke)
+	if err != nil {
+		h.Log.Error(err.Error())
+		ctx.JSON(500, gin.H{"error4": err.Error()})
 	}
 
-	ctx.JSON(http.StatusOK, models.Tokens{AccessToken: tokens.AccessToken, RefreshToken: tokens.RefreshToken})
+	ctx.JSON(http.StatusOK, &toke)
+	h.Log.Info("login is succesfully ended")
+
 }
 
-// RefreshToken refreshes user token with refresh token.
-// @Summary Refresh user token
-// @Description Refresh user token with refresh token
-// @Accept json
-// @Produce json
-// @Param input body models.RefreshRequest true "Refresh token details"
-// @Success 200 {object} models.Tokens
-// @Failure 400 {object} models.Failed
-// @Failure 500 {object} models.Failed
-// @Router /refresh-token [post]
-func (h *Handler) RefreshToken(ctx *gin.Context) {
-	var request models.RefreshRequest
-	if err := ctx.ShouldBindJSON(&request); err != nil {
-		h.Log.Error("Failed to bind JSON", zap.Error(err))
-		ctx.JSON(http.StatusBadRequest, models.Failed{Message: "Invalid request payload", Error: err.Error()})
-		return
+// @Summary Refresh token
+// @Description it changes your access token
+// @Security ApiKeyAuth
+// @Tags auth
+// @Param userinfo body users.CheckRefreshTokenRequest true "token"
+// @Success 200 {object} users.Token
+// @Failure 400 {object} string "Invalid date"
+// @Failure 401 {object} string "Invalid token"
+// @Failure 500 {object} string "error while reading from server"
+// @Router /user/refresh [post]
+func (h Handler) Refresh(ctx *gin.Context) {
+	h.Log.Info("Refresh is working")
+	req := users.CheckRefreshTokenRequest{}
+	if err := ctx.BindJSON(&req); err != nil {
+		h.Log.Error(err.Error())
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 	}
-
-	response, err := h.UsersService.Refresh(ctx, &genproto.RefreshRequest{
-		RefreshToken: request.RefreshToken,
-	})
+	_, err := token.ValidateRefreshToken(req.RefreshToken)
 	if err != nil {
-		h.Log.Error("Failed to refresh token", zap.Error(err))
-		ctx.JSON(http.StatusInternalServerError, models.Failed{Message: "Failed to refresh token", Error: err.Error()})
-		return
+		h.Log.Error(err.Error())
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 	}
+	id, err := token.GetUserIdFromRefreshToken(req.RefreshToken)
+	if err != nil {
+		h.Log.Error(err.Error())
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+	}
+	res := users.Token{RefreshToken: req.RefreshToken}
 
-	ctx.JSON(http.StatusOK, response)
+	err = token.GeneratedAccessJWTToken(&users.RegisterResponse{Id: id}, &res)
+	if err != nil {
+		h.Log.Error(err.Error())
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+	}
+	ctx.JSON(http.StatusOK, &res)
 }
 
-// Logout logs out a user by invalidating token.
-// @Summary Logout a user
-// @Description Logout a user by invalidating token
-// @Produce json
-// @Security BearerAuth
-// @Success 200 {object} models.Logout
-// @Failure 401 {object} models.Failed
-// @Router /logout [post]
-func (h *Handler) Logout(ctx *gin.Context) {
-	_, err := h.ValidateToken(ctx)
-	if err != nil {
-		ctx.JSON(http.StatusUnauthorized, models.Failed{Message: "Unauthorized", Error: err.Error()})
-		return
-	}
-
-	ctx.JSON(http.StatusOK, gin.H{"message": "Logged out successfully"})
-}
 
 // ValidateToken validates the JWT token from Authorization header.
 func (h *Handler) ValidateToken(ctx *gin.Context) (jwt.MapClaims, error) {
@@ -160,4 +150,121 @@ func (h *Handler) ValidateToken(ctx *gin.Context) (jwt.MapClaims, error) {
 	}
 
 	return nil, fmt.Errorf("invalid token")
+}
+
+// Profile retrieves user profile details.
+// @Summary Get user profile
+// @Description Retrieve user profile details
+// @Security ApiKeyAuth
+// @Tags User
+// @Accept json
+// @Produce json
+// @Param user_id path string true "User ID"
+// @Success 200 {object} models.ProfileResponse
+// @Failure 401 {object} models.Failed
+// @Failure 500 {object} models.Failed
+// @Router /user/profile/{user_id} [get]
+func (h *Handler) Profile(ctx *gin.Context) {
+	userID := ctx.Param("user_id")
+	fmt.Println(userID)
+
+	claims, err := h.ValidateToken(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, models.Failed{Message: "Unauthorized", Error: err.Error()})
+		return
+	}
+
+	if claims["sub"] != userID {
+		ctx.JSON(http.StatusUnauthorized, models.Failed{Message: "Unauthorized access to profile"})
+		return
+	}
+
+	request := &users.ProfileRequest{UserId: userID}
+	response, err := h.UsersRepo.Profile(ctx, request)
+	if err != nil {
+		h.Log.Error("Failed to fetch profile", zap.Error(err))
+		ctx.JSON(http.StatusInternalServerError, models.Failed{Message: "Failed to fetch profile", Error: err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, response)
+}
+
+
+// UpdateProfile updates user profile details.
+// @Summary Update user profile
+// @Description Update user profile details
+// @Security ApiKeyAuth
+// @Tags User
+// @Accept json
+// @Produce json
+// @Param user_id path string true "User ID"
+// @Param input body models.UpdateProfileRequest true "Update details"
+// @Success 200 {object} models.ProfileResponse
+// @Failure 400 {object} models.Failed
+// @Failure 401 {object} models.Failed
+// @Failure 500 {object} models.Failed
+// @Router /user/profileUpdate/{user_id} [put]
+func (h *Handler) UpdateProfile(ctx *gin.Context) {
+	userID := ctx.Param("user_id")
+
+	claims, err := h.ValidateToken(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, models.Failed{Message: "Unauthorized", Error: err.Error()})
+		return
+	}
+
+	if claims["sub"] != userID {
+		ctx.JSON(http.StatusUnauthorized, models.Failed{Message: "Unauthorized access to profile"})
+		return
+	}
+
+	var request models.UpdateProfileRequest
+	if err := ctx.ShouldBindJSON(&request); err != nil {
+		h.Log.Error("Failed to bind JSON", zap.Error(err))
+		ctx.JSON(http.StatusBadRequest, models.Failed{Message: "Invalid request payload", Error: err.Error()})
+		return
+	}
+
+	request.UserID = userID
+	response, err := h.UsersRepo.UpdateProfile(ctx, &users.UpdateProfileRequest{
+		Id:       request.UserID,
+		FullName: request.FullName,
+		Bio:      request.Bio,
+	})
+	if err != nil {
+		h.Log.Error("Failed to update profile", zap.Error(err))
+		ctx.JSON(http.StatusInternalServerError, models.Failed{Message: "Failed to update profile", Error: err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, response)
+}
+
+// @Summary delete user
+// @Description you can delete your profile
+// @Security ApiKeyAuth
+// @Tags User
+// @Param user_id path string true "user_id"
+// @Success 200 {object} string
+// @Failure 400 {object} string "Invalid data"
+// @Failure 500 {object} string "error while reading from server"
+// @Router /user/users/{user_id} [delete]
+func (h Handler) Delete(ctx *gin.Context) {
+	h.Log.Info("Delete is working")
+	id := ctx.Param("user_id")
+	_, err := uuid.Parse(id)
+	if err != nil {
+		h.Log.Error(err.Error())
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "user id is incorrect"})
+		return
+	}
+
+	_, err = h.UsersRepo.DeleteUser(ctx, &users.DeleteUserRequest{Id: id})
+	if err != nil {
+		h.Log.Error(err.Error())
+		ctx.JSON(500, gin.H{"error": err.Error()})
+	}
+	ctx.JSON(http.StatusOK, gin.H{"message": "user deleted"})
+	h.Log.Info("Delete ended")
 }

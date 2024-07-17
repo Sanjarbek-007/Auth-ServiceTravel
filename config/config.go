@@ -36,7 +36,7 @@ func Load() Config {
 	config.PostgresPort = cast.ToInt(getOrReturnDefaultValue("POSTGRES_PORT", 5432))
 	config.PostgresUser = cast.ToString(getOrReturnDefaultValue("POSTGRES_USER", "macbookpro"))
 	config.PostgresPassword = cast.ToString(getOrReturnDefaultValue("POSTGRES_PASSWORD", "1111"))
-	config.PostgresDatabase = cast.ToString(getOrReturnDefaultValue("POSTGRES_DATABASE", "users"))
+	config.PostgresDatabase = cast.ToString(getOrReturnDefaultValue("POSTGRES_DATABASE", "content"))
 	config.TokenKey = cast.ToString(getOrReturnDefaultValue("TokenKey", "my_secret_key"))
 	return config
 }

@@ -15,27 +15,50 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/logout": {
+        "/auth/login": {
             "post": {
                 "security": [
                     {
-                        "BearerAuth": []
+                        "ApiKeyAuth": []
                     }
                 ],
-                "description": "Logout a user by invalidating token",
+                "description": "Login a user with username and password",
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
                     "application/json"
                 ],
-                "summary": "Logout a user",
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Login a user",
+                "parameters": [
+                    {
+                        "description": "Login details",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.LoginRequest"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.Logout"
+                            "$ref": "#/definitions/models.Tokens"
                         }
                     },
-                    "401": {
-                        "description": "Unauthorized",
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.Failed"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/models.Failed"
                         }
@@ -43,14 +66,73 @@ const docTemplate = `{
                 }
             }
         },
-        "/profile/{user_id}": {
+        "/auth/register": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Register a new user with username and password and email",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Register a new user",
+                "parameters": [
+                    {
+                        "description": "Registration details",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/users.RegisterRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/users.RegisterResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "bad request",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "internal status error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/user/profile/{user_id}": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Retrieve user profile details",
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "User"
                 ],
                 "summary": "Get user profile",
                 "parameters": [
@@ -82,14 +164,24 @@ const docTemplate = `{
                         }
                     }
                 }
-            },
+            }
+        },
+        "/user/profileUpdate/{user_id}": {
             "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Update user profile details",
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "User"
                 ],
                 "summary": "Update user profile",
                 "parameters": [
@@ -138,24 +230,26 @@ const docTemplate = `{
                 }
             }
         },
-        "/refresh-token": {
+        "/user/refresh": {
             "post": {
-                "description": "Refresh user token with refresh token",
-                "consumes": [
-                    "application/json"
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
                 ],
-                "produces": [
-                    "application/json"
+                "description": "it changes your access token",
+                "tags": [
+                    "auth"
                 ],
-                "summary": "Refresh user token",
+                "summary": "Refresh token",
                 "parameters": [
                     {
-                        "description": "Refresh token details",
-                        "name": "input",
+                        "description": "token",
+                        "name": "userinfo",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.RefreshRequest"
+                            "$ref": "#/definitions/users.CheckRefreshTokenRequest"
                         }
                     }
                 ],
@@ -163,103 +257,66 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.Tokens"
+                            "$ref": "#/definitions/users.Token"
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Invalid date",
                         "schema": {
-                            "$ref": "#/definitions/models.Failed"
+                            "type": "string"
                         }
                     },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/models.Failed"
-                        }
-                    }
-                }
-            }
-        },
-        "/user/login": {
-            "post": {
-                "description": "Login a user with username and password",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "Login a user",
-                "parameters": [
-                    {
-                        "description": "Login details",
-                        "name": "input",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/models.LoginRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/models.Tokens"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/models.Failed"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/models.Failed"
-                        }
-                    }
-                }
-            }
-        },
-        "/user/register": {
-            "post": {
-                "description": "Register a new user with username and password and email",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "Register a new user",
-                "parameters": [
-                    {
-                        "description": "Registration details",
-                        "name": "input",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/genproto.RegisterRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/genproto.RegisterResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "bad request",
+                    "401": {
+                        "description": "Invalid token",
                         "schema": {
                             "type": "string"
                         }
                     },
                     "500": {
-                        "description": "internal status error",
+                        "description": "error while reading from server",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/user/users/{user_id}": {
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "you can delete your profile",
+                "tags": [
+                    "User"
+                ],
+                "summary": "delete user",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "user_id",
+                        "name": "user_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid data",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "error while reading from server",
                         "schema": {
                             "type": "string"
                         }
@@ -269,43 +326,6 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "genproto.RegisterRequest": {
-            "type": "object",
-            "properties": {
-                "email": {
-                    "type": "string"
-                },
-                "full_name": {
-                    "type": "string"
-                },
-                "password": {
-                    "type": "string"
-                },
-                "username": {
-                    "type": "string"
-                }
-            }
-        },
-        "genproto.RegisterResponse": {
-            "type": "object",
-            "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "email": {
-                    "type": "string"
-                },
-                "full_name": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "username": {
-                    "type": "string"
-                }
-            }
-        },
         "models.Failed": {
             "type": "object",
             "properties": {
@@ -332,14 +352,6 @@ const docTemplate = `{
                 }
             }
         },
-        "models.Logout": {
-            "type": "object",
-            "properties": {
-                "message": {
-                    "type": "string"
-                }
-            }
-        },
         "models.ProfileResponse": {
             "type": "object",
             "properties": {
@@ -356,17 +368,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "username": {
-                    "type": "string"
-                }
-            }
-        },
-        "models.RefreshRequest": {
-            "type": "object",
-            "required": [
-                "refresh_token"
-            ],
-            "properties": {
-                "refresh_token": {
                     "type": "string"
                 }
             }
@@ -399,6 +400,62 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "users.CheckRefreshTokenRequest": {
+            "type": "object",
+            "properties": {
+                "refresh_token": {
+                    "type": "string"
+                }
+            }
+        },
+        "users.RegisterRequest": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "full_name": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "users.RegisterResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "full_name": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "users.Token": {
+            "type": "object",
+            "properties": {
+                "access_token": {
+                    "type": "string"
+                },
+                "refresh_token": {
                     "type": "string"
                 }
             }

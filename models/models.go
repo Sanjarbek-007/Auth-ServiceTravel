@@ -42,7 +42,6 @@ type ProfileResponse struct {
 	Bio      string `json:"bio"`
 }
 
-// Success represents a success response.
 type Success struct {
 	Message string      `json:"message"`
 	Data    interface{} `json:"data,omitempty"`
