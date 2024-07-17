@@ -1,19 +1,18 @@
 package handlers
 
 import (
-	"Auth-Service/genproto"
+	"Auth-Service/storage/postgres"
 
 	"go.uber.org/zap"
 )
 
 type Handler struct {
-	UsersService genproto.UserServiceClient
+	UsersRepo *postgres.UserRepository
 	Log          *zap.Logger
 }
 
-func NewHandler(user genproto.UserServiceClient, l *zap.Logger) *Handler {
+func NewHandler(users *postgres.UserRepository, log *zap.Logger) *Handler {
 	return &Handler{
-		UsersService: user,
-		Log:          l,
-	}
+		UsersRepo: users,
+		Log:          log}
 }

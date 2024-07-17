@@ -15,14 +15,22 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/login": {
+        "/auth/login": {
             "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Login a user with username and password",
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Auth"
                 ],
                 "summary": "Login a user",
                 "parameters": [
@@ -58,42 +66,73 @@ const docTemplate = `{
                 }
             }
         },
-        "/logout": {
+        "/auth/register": {
             "post": {
                 "security": [
                     {
-                        "BearerAuth": []
+                        "ApiKeyAuth": []
                     }
                 ],
-                "description": "Logout a user by invalidating token",
+                "description": "Register a new user with username and password and email",
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
                     "application/json"
                 ],
-                "summary": "Logout a user",
-                "responses": {
-                    "200": {
-                        "description": "OK",
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Register a new user",
+                "parameters": [
+                    {
+                        "description": "Registration details",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.Logout"
+                            "$ref": "#/definitions/users.RegisterRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/users.RegisterResponse"
                         }
                     },
-                    "401": {
-                        "description": "Unauthorized",
+                    "400": {
+                        "description": "bad request",
                         "schema": {
-                            "$ref": "#/definitions/models.Failed"
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "internal status error",
+                        "schema": {
+                            "type": "string"
                         }
                     }
                 }
             }
         },
-        "/profile/{user_id}": {
+        "/user/profile/{user_id}": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Retrieve user profile details",
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "User"
                 ],
                 "summary": "Get user profile",
                 "parameters": [
@@ -125,14 +164,24 @@ const docTemplate = `{
                         }
                     }
                 }
-            },
+            }
+        },
+        "/user/profileUpdate/{user_id}": {
             "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Update user profile details",
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "User"
                 ],
                 "summary": "Update user profile",
                 "parameters": [
@@ -181,24 +230,26 @@ const docTemplate = `{
                 }
             }
         },
-        "/refresh-token": {
+        "/user/refresh": {
             "post": {
-                "description": "Refresh user token with refresh token",
-                "consumes": [
-                    "application/json"
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
                 ],
-                "produces": [
-                    "application/json"
+                "description": "it changes your access token",
+                "tags": [
+                    "auth"
                 ],
-                "summary": "Refresh user token",
+                "summary": "Refresh token",
                 "parameters": [
                     {
-                        "description": "Refresh token details",
-                        "name": "input",
+                        "description": "token",
+                        "name": "userinfo",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.RefreshRequest"
+                            "$ref": "#/definitions/users.CheckRefreshTokenRequest"
                         }
                     }
                 ],
@@ -206,62 +257,68 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.Tokens"
+                            "$ref": "#/definitions/users.Token"
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Invalid date",
                         "schema": {
-                            "$ref": "#/definitions/models.Failed"
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Invalid token",
+                        "schema": {
+                            "type": "string"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "error while reading from server",
                         "schema": {
-                            "$ref": "#/definitions/models.Failed"
+                            "type": "string"
                         }
                     }
                 }
             }
         },
-        "/register": {
-            "post": {
-                "description": "Register a new user with username and password and email",
-                "consumes": [
-                    "application/json"
+        "/user/users/{user_id}": {
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
                 ],
-                "produces": [
-                    "application/json"
+                "description": "you can delete your profile",
+                "tags": [
+                    "User"
                 ],
-                "summary": "Register a new user",
+                "summary": "delete user",
                 "parameters": [
                     {
-                        "description": "Registration details",
-                        "name": "input",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/models.RegisterRequest"
-                        }
+                        "type": "string",
+                        "description": "user_id",
+                        "name": "user_id",
+                        "in": "path",
+                        "required": true
                     }
                 ],
                 "responses": {
-                    "201": {
-                        "description": "Created",
+                    "200": {
+                        "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.Success"
+                            "type": "string"
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Invalid data",
                         "schema": {
-                            "$ref": "#/definitions/models.Failed"
+                            "type": "string"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "error while reading from server",
                         "schema": {
-                            "$ref": "#/definitions/models.Failed"
+                            "type": "string"
                         }
                     }
                 }
@@ -295,14 +352,6 @@ const docTemplate = `{
                 }
             }
         },
-        "models.Logout": {
-            "type": "object",
-            "properties": {
-                "message": {
-                    "type": "string"
-                }
-            }
-        },
         "models.ProfileResponse": {
             "type": "object",
             "properties": {
@@ -319,49 +368,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "username": {
-                    "type": "string"
-                }
-            }
-        },
-        "models.RefreshRequest": {
-            "type": "object",
-            "required": [
-                "refresh_token"
-            ],
-            "properties": {
-                "refresh_token": {
-                    "type": "string"
-                }
-            }
-        },
-        "models.RegisterRequest": {
-            "type": "object",
-            "required": [
-                "email",
-                "full_name",
-                "password",
-                "username"
-            ],
-            "properties": {
-                "email": {
-                    "type": "string"
-                },
-                "full_name": {
-                    "type": "string"
-                },
-                "password": {
-                    "type": "string"
-                },
-                "username": {
-                    "type": "string"
-                }
-            }
-        },
-        "models.Success": {
-            "type": "object",
-            "properties": {
-                "data": {},
-                "message": {
                     "type": "string"
                 }
             }
@@ -397,6 +403,62 @@ const docTemplate = `{
                     "type": "string"
                 }
             }
+        },
+        "users.CheckRefreshTokenRequest": {
+            "type": "object",
+            "properties": {
+                "refresh_token": {
+                    "type": "string"
+                }
+            }
+        },
+        "users.RegisterRequest": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "full_name": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "users.RegisterResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "full_name": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "users.Token": {
+            "type": "object",
+            "properties": {
+                "access_token": {
+                    "type": "string"
+                },
+                "refresh_token": {
+                    "type": "string"
+                }
+            }
         }
     },
     "securityDefinitions": {
@@ -411,7 +473,7 @@ const docTemplate = `{
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
-	Host:             "localhost:8080",
+	Host:             "localhost:8081",
 	BasePath:         "/",
 	Schemes:          []string{},
 	Title:            "",
