@@ -30,8 +30,8 @@ const (
 	UserService_Refresh_FullMethodName        = "/protos.UserService/Refresh"
 	UserService_Logout_FullMethodName         = "/protos.UserService/Logout"
 	UserService_Activity_FullMethodName       = "/protos.UserService/Activity"
-	UserService_Follow_FullMethodName         = "/protos.UserService/Follow"
-	UserService_Followers_FullMethodName      = "/protos.UserService/Followers"
+	UserService_FollowUser_FullMethodName     = "/protos.UserService/FollowUser"
+	UserService_FollowersUsers_FullMethodName = "/protos.UserService/FollowersUsers"
 )
 
 // UserServiceClient is the client API for UserService service.
@@ -49,8 +49,8 @@ type UserServiceClient interface {
 	Refresh(ctx context.Context, in *RefreshRequest, opts ...grpc.CallOption) (*RefreshResponse, error)
 	Logout(ctx context.Context, in *LogoutRequest, opts ...grpc.CallOption) (*LogoutResponse, error)
 	Activity(ctx context.Context, in *ActivityRequest, opts ...grpc.CallOption) (*ActivityResponse, error)
-	Follow(ctx context.Context, in *FollowRequest, opts ...grpc.CallOption) (*FollowResponse, error)
-	Followers(ctx context.Context, in *FollowersRequest, opts ...grpc.CallOption) (*FollowersResponse, error)
+	FollowUser(ctx context.Context, in *FollowRequest, opts ...grpc.CallOption) (*FollowResponce, error)
+	FollowersUsers(ctx context.Context, in *FollowersRequest, opts ...grpc.CallOption) (*FollowersResponce, error)
 }
 
 type userServiceClient struct {
@@ -171,20 +171,20 @@ func (c *userServiceClient) Activity(ctx context.Context, in *ActivityRequest, o
 	return out, nil
 }
 
-func (c *userServiceClient) Follow(ctx context.Context, in *FollowRequest, opts ...grpc.CallOption) (*FollowResponse, error) {
+func (c *userServiceClient) FollowUser(ctx context.Context, in *FollowRequest, opts ...grpc.CallOption) (*FollowResponce, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(FollowResponse)
-	err := c.cc.Invoke(ctx, UserService_Follow_FullMethodName, in, out, cOpts...)
+	out := new(FollowResponce)
+	err := c.cc.Invoke(ctx, UserService_FollowUser_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *userServiceClient) Followers(ctx context.Context, in *FollowersRequest, opts ...grpc.CallOption) (*FollowersResponse, error) {
+func (c *userServiceClient) FollowersUsers(ctx context.Context, in *FollowersRequest, opts ...grpc.CallOption) (*FollowersResponce, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(FollowersResponse)
-	err := c.cc.Invoke(ctx, UserService_Followers_FullMethodName, in, out, cOpts...)
+	out := new(FollowersResponce)
+	err := c.cc.Invoke(ctx, UserService_FollowersUsers_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -206,8 +206,8 @@ type UserServiceServer interface {
 	Refresh(context.Context, *RefreshRequest) (*RefreshResponse, error)
 	Logout(context.Context, *LogoutRequest) (*LogoutResponse, error)
 	Activity(context.Context, *ActivityRequest) (*ActivityResponse, error)
-	Follow(context.Context, *FollowRequest) (*FollowResponse, error)
-	Followers(context.Context, *FollowersRequest) (*FollowersResponse, error)
+	FollowUser(context.Context, *FollowRequest) (*FollowResponce, error)
+	FollowersUsers(context.Context, *FollowersRequest) (*FollowersResponce, error)
 	mustEmbedUnimplementedUserServiceServer()
 }
 
@@ -248,11 +248,11 @@ func (UnimplementedUserServiceServer) Logout(context.Context, *LogoutRequest) (*
 func (UnimplementedUserServiceServer) Activity(context.Context, *ActivityRequest) (*ActivityResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Activity not implemented")
 }
-func (UnimplementedUserServiceServer) Follow(context.Context, *FollowRequest) (*FollowResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Follow not implemented")
+func (UnimplementedUserServiceServer) FollowUser(context.Context, *FollowRequest) (*FollowResponce, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method FollowUser not implemented")
 }
-func (UnimplementedUserServiceServer) Followers(context.Context, *FollowersRequest) (*FollowersResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Followers not implemented")
+func (UnimplementedUserServiceServer) FollowersUsers(context.Context, *FollowersRequest) (*FollowersResponce, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method FollowersUsers not implemented")
 }
 func (UnimplementedUserServiceServer) mustEmbedUnimplementedUserServiceServer() {}
 
@@ -465,38 +465,38 @@ func _UserService_Activity_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
-func _UserService_Follow_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _UserService_FollowUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(FollowRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(UserServiceServer).Follow(ctx, in)
+		return srv.(UserServiceServer).FollowUser(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: UserService_Follow_FullMethodName,
+		FullMethod: UserService_FollowUser_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(UserServiceServer).Follow(ctx, req.(*FollowRequest))
+		return srv.(UserServiceServer).FollowUser(ctx, req.(*FollowRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _UserService_Followers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _UserService_FollowersUsers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(FollowersRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(UserServiceServer).Followers(ctx, in)
+		return srv.(UserServiceServer).FollowersUsers(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: UserService_Followers_FullMethodName,
+		FullMethod: UserService_FollowersUsers_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(UserServiceServer).Followers(ctx, req.(*FollowersRequest))
+		return srv.(UserServiceServer).FollowersUsers(ctx, req.(*FollowersRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -553,12 +553,12 @@ var UserService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _UserService_Activity_Handler,
 		},
 		{
-			MethodName: "Follow",
-			Handler:    _UserService_Follow_Handler,
+			MethodName: "FollowUser",
+			Handler:    _UserService_FollowUser_Handler,
 		},
 		{
-			MethodName: "Followers",
-			Handler:    _UserService_Followers_Handler,
+			MethodName: "FollowersUsers",
+			Handler:    _UserService_FollowersUsers_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

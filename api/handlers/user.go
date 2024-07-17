@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"Auth-Service/api/token"
@@ -18,7 +19,7 @@ import (
 // Register handles user registration.
 // @Summary Register a new user
 // @Description Register a new user with username and password and email
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Tags Auth
 // @Accept json
 // @Produce json
@@ -53,7 +54,7 @@ func (h *Handler) Register(ctx *gin.Context) {
 // Login handles user login.
 // @Summary Login a user
 // @Description Login a user with username and password
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Tags Auth
 // @Accept json
 // @Produce json
@@ -97,14 +98,14 @@ func (h Handler) Login(ctx *gin.Context) {
 
 // @Summary Refresh token
 // @Description it changes your access token
-// @Security ApiKeyAuth
-// @Tags auth
+// @Security BearerAuth
+// @Tags Auth
 // @Param userinfo body users.CheckRefreshTokenRequest true "token"
 // @Success 200 {object} users.Token
 // @Failure 400 {object} string "Invalid date"
 // @Failure 401 {object} string "Invalid token"
 // @Failure 500 {object} string "error while reading from server"
-// @Router /user/refresh [post]
+// @Router /auth/refresh [post]
 func (h Handler) Refresh(ctx *gin.Context) {
 	h.Log.Info("Refresh is working")
 	req := users.CheckRefreshTokenRequest{}
@@ -132,14 +133,13 @@ func (h Handler) Refresh(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, &res)
 }
 
-
 // ValidateToken validates the JWT token from Authorization header.
 func (h *Handler) ValidateToken(ctx *gin.Context) (jwt.MapClaims, error) {
 	tokenString := ctx.GetHeader("Authorization")
 	tokenString = strings.TrimPrefix(tokenString, "Bearer ")
 
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		return []byte("salom"), nil
+		return []byte("my_secret_key"), nil
 	})
 	if err != nil {
 		return nil, err
@@ -155,7 +155,7 @@ func (h *Handler) ValidateToken(ctx *gin.Context) (jwt.MapClaims, error) {
 // Profile retrieves user profile details.
 // @Summary Get user profile
 // @Description Retrieve user profile details
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Tags User
 // @Accept json
 // @Produce json
@@ -168,17 +168,6 @@ func (h *Handler) Profile(ctx *gin.Context) {
 	userID := ctx.Param("user_id")
 	fmt.Println(userID)
 
-	claims, err := h.ValidateToken(ctx)
-	if err != nil {
-		ctx.JSON(http.StatusUnauthorized, models.Failed{Message: "Unauthorized", Error: err.Error()})
-		return
-	}
-
-	if claims["sub"] != userID {
-		ctx.JSON(http.StatusUnauthorized, models.Failed{Message: "Unauthorized access to profile"})
-		return
-	}
-
 	request := &users.ProfileRequest{UserId: userID}
 	response, err := h.UsersRepo.Profile(ctx, request)
 	if err != nil {
@@ -190,11 +179,10 @@ func (h *Handler) Profile(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, response)
 }
 
-
 // UpdateProfile updates user profile details.
 // @Summary Update user profile
 // @Description Update user profile details
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Tags User
 // @Accept json
 // @Produce json
@@ -243,7 +231,7 @@ func (h *Handler) UpdateProfile(ctx *gin.Context) {
 
 // @Summary delete user
 // @Description you can delete your profile
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Tags User
 // @Param user_id path string true "user_id"
 // @Success 200 {object} string
@@ -268,3 +256,100 @@ func (h Handler) Delete(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "user deleted"})
 	h.Log.Info("Delete ended")
 }
+
+// @Security BearerAuth
+// @Summary follow user
+// @Description you can follow another user
+// @Tags users
+// @Param user_id path string true "user_id"
+// @Success 200 {object} users.FollowResponce
+// @Failure 400 {object} string "Invalid data"
+// @Failure 500 {object} string "error while reading from server"
+// @Router /user/{user_id}/follow [post]
+func (h *Handler) FollowUser(ctx *gin.Context) {
+	h.Log.Info("Follow is working")
+	id := ctx.Param("user_id")
+	_, err := uuid.Parse(id)
+	if err != nil {
+		h.Log.Error(err.Error())
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "user id is incorrect"})
+	}
+
+	accessToken := ctx.GetHeader("Authorization")
+	idFollower, err := token.GetUserIdFromAccessToken(accessToken)
+	if err != nil {
+		h.Log.Error(err.Error())
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "unauthorized"})
+	}
+	req := users.FollowRequest{
+		FollowerId:  idFollower,
+		FollowingId: id,
+	}
+	res, err := h.UsersRepo.Follow(ctx, &req)
+	fmt.Println(res, err)
+	if err != nil {
+		h.Log.Error(err.Error())
+		ctx.JSON(500, gin.H{"error": err.Error()})
+	}
+	ctx.JSON(http.StatusOK, res)
+	h.Log.Info("Follow ended")
+}
+
+// @Security ApiKeyAuth
+// @Summary get followers
+// @Description you can see your followers
+// @Tags users
+// @Param user_id path string true "user_id"
+// @Param limit query string false "Number of users to fetch"
+// @Param page query string false "Number of users to omit"
+// @Success 200 {object} users.FollowersResponce
+// @Failure 400 {object} string "Invalid data"
+// @Failure 500 {object} string "error while reading from server"
+// @Router /user/{user_id}/followers [get]
+func (h *Handler) FollowersUsers(ctx *gin.Context) {
+	h.Log.Info("Followers is working")
+	id := ctx.Param("user_id")
+	_, err := uuid.Parse(id)
+	if err != nil {
+		h.Log.Error(err.Error())
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "user id is incorrect"})
+	}
+	req := users.FollowersRequest{UserId: id}
+
+	limitStr := ctx.Query("limit")
+	pageStr := ctx.Query("page")
+
+	if limitStr != "" {
+		limit, err := strconv.Atoi(limitStr)
+		if err != nil {
+			ctx.AbortWithStatusJSON(http.StatusBadRequest,
+				gin.H{"error": err.Error()})
+			h.Log.Error(err.Error())
+			return
+		}
+		req.Limit = int32(limit)
+	} else {
+		req.Limit = 10
+	}
+
+	if pageStr != "" {
+		page, err := strconv.Atoi(pageStr)
+		if err != nil {
+			ctx.AbortWithStatusJSON(http.StatusBadRequest,
+				gin.H{"error": err.Error()})
+			h.Log.Error(err.Error())
+			return
+		}
+		req.Page = int32(page)
+	} else {
+		req.Page = 1
+	}
+
+	res, err := h.UsersRepo.FollowersUsers(ctx, &req)
+	if err != nil {
+		h.Log.Error(err.Error())
+	}
+	ctx.JSON(http.StatusOK, res)
+	h.Log.Info("Followers ended")
+}
+

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	pb "Auth-Service/genproto/users"
-
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"
 )
@@ -83,21 +82,19 @@ func TestGetUserByID(t *testing.T) {
 	ctx := context.Background()
 	userID := "12345"
 
-	mock.ExpectQuery("SELECT username, email, password, full_name, bio, countries_visited FROM users WHERE id = \\$1 AND deleted_at IS NULL").
+	mock.ExpectQuery("SELECT username, email, password, full_name FROM users WHERE id = $1 AND deleted_at IS NULL").
 		WithArgs(userID).
 		WillReturnRows(sqlmock.NewRows([]string{"username", "email", "password", "full_name", "bio", "countries_visited"}).
-			AddRow("testuser", "test@example.com", "password", "Test User", "Bio", 5))
+			AddRow("vali", "vali12@gmail.com", "vali", "Vali Aliyev"))
 
 	resp, err := repo.GetUserByID(ctx, userID)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
-	assert.Equal(t, "testuser", resp.Username)
-	assert.Equal(t, "test@example.com", resp.Email)
-	assert.Equal(t, "password", resp.Password)
-	assert.Equal(t, "Test User", resp.FullName)
-	assert.Equal(t, "Bio", resp.Bio)
-	assert.Equal(t, int32(5), resp.CountriesVisited)
+	assert.Equal(t, "vali", resp.Username)
+	assert.Equal(t, "vali12@gmail.com", resp.Email)
+	assert.Equal(t, "vali", resp.Password)
+	assert.Equal(t, "Vali Aliyev", resp.FullName)
 }
 
 func TestProfile(t *testing.T) {
