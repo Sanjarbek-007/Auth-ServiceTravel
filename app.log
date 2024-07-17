@@ -1,2 +1,3 @@
-{"level":"info","time":"2024-07-17T14:33:06.400+0500","msg":"Login is working"}
-{"level":"info","time":"2024-07-17T14:33:06.404+0500","msg":"login is succesfully ended"}
+{"level":"info","time":"2024-07-17T20:24:24.159+0500","msg":"Delete is working"}
+{"level":"error","time":"2024-07-17T20:24:24.162+0500","msg":"pq: column \"deleted_at\" is of type bigint but expression is of type timestamp with time zone"}
+{"level":"info","time":"2024-07-17T20:24:24.162+0500","msg":"Delete ended"}

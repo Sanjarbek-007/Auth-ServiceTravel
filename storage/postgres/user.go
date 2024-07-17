@@ -48,8 +48,8 @@ func (repo *UserRepository) Register(ctx context.Context, request *pb.RegisterRe
 
 func (repo *UserRepository) Login(ctx context.Context, request *pb.LoginRequest) (*pb.RegisterResponse, error) {
 	var loginUser pb.RegisterResponse
-	err := repo.Db.QueryRowContext(ctx, 
-		"SELECT id, username, email, full_name, created_at FROM users WHERE username = $1 AND password = $2", 
+	err := repo.Db.QueryRowContext(ctx,
+		"SELECT id, username, email, full_name, created_at FROM users WHERE username = $1 AND password = $2 and deleted_at = 0",
 		request.Username, request.Password,
 	).Scan(&loginUser.Id, &loginUser.Username, &loginUser.Email, &loginUser.FullName, &loginUser.CreatedAt)
 	if err != nil {
@@ -72,7 +72,7 @@ func (repo *UserRepository) GetUserByID(ctx context.Context, id string) (*pb.Use
 	FROM
 		users
 	WHERE
-		id = $1 AND deleted_at IS NULL
+		id = $1 AND deleted_at = 0
 	`
 	row := repo.Db.QueryRowContext(ctx, query, id)
 
@@ -96,21 +96,26 @@ func (repo *UserRepository) GetUserByID(ctx context.Context, id string) (*pb.Use
 
 func (repo *UserRepository) Profile(ctx context.Context, request *pb.ProfileRequest) (*pb.ProfileResponse, error) {
 	var user pb.ProfileResponse
+	var bio sql.NullString
 	err := repo.Db.QueryRowContext(
 		ctx,
-		"SELECT id, username, email, full_name, bio, countries_visited, created_at, updated_at FROM users WHERE id=$1 AND deleted_at IS NULL",
+		"SELECT id, username, email, full_name, bio, countries_visited, created_at, updated_at FROM users WHERE id=$1 AND deleted_at = 0",
 		request.UserId,
-	).Scan(&user.Id, &user.Username, &user.Email, &user.FullName, &user.Bio, &user.CountriesVisited, &user.CreatedAt, &user.UpdatedAt)
+	).Scan(&user.Id, &user.Username, &user.Email, &user.FullName, &bio, &user.CountriesVisited, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
+	if !bio.Valid {
+		user.Bio = ""
+	}
+	user.Bio = bio.String
 	return &user, nil
 }
 
 func (repo *UserRepository) UpdateProfile(ctx context.Context, request *pb.UpdateProfileRequest) (*pb.UpdateProfileResponse, error) {
 	query := `UPDATE users 
 			  SET full_name = $1, bio = $2, countries_visited = $3, updated_at = $4 
-			  WHERE id = $5
+			  WHERE id = $5 and deleted_at = 0
 			  RETURNING id, username, email, full_name, bio, countries_visited, updated_at`
 
 	row := repo.Db.QueryRowContext(ctx, query,
@@ -150,7 +155,7 @@ func (repo *UserRepository) GetUsers(ctx context.Context, request *pb.GetUsersRe
 		filter += " OFFSET :offset "
 	}
 
-	query := "SELECT id, username, full_name, countries_visited FROM users WHERE deleted_at IS NULL"
+	query := "SELECT id, username, full_name, countries_visited FROM users WHERE deleted_at = 0"
 	query = query + filter
 	query, arr = storage.ReplaceQueryParams(query, params)
 	rows, err := repo.Db.QueryContext(ctx, query, arr...)
@@ -173,10 +178,11 @@ func (repo *UserRepository) GetUsers(ctx context.Context, request *pb.GetUsersRe
 }
 
 func (repo *UserRepository) DeleteUser(ctx context.Context, request *pb.DeleteUserRequest) (*pb.DeleteUserResponse, error) {
+	time := time.Now().Unix()
 	_, err := repo.Db.ExecContext(
 		ctx,
-		"UPDATE users SET deleted_at=CURRENT_TIMESTAMP WHERE id=$1 AND deleted_at IS NULL",
-		request.Id,
+		"UPDATE users SET deleted_at=$1 WHERE id=$2 AND deleted_at = 0",
+		time, request.Id,
 	)
 	if err != nil {
 		return nil, err
@@ -224,7 +230,7 @@ func SendEmail(to, subject, body string) error {
 func (repo *UserRepository) Logout(ctx context.Context, request *pb.LogoutRequest) (*pb.LogoutResponse, error) {
 	query := `UPDATE users
 			SET token = NULL
-			WHERE id = $1`
+			WHERE id = $1 and deleted_at = 0`
 
 	result, err := repo.Db.ExecContext(ctx, query, request.UserId)
 	if err != nil {
@@ -247,7 +253,7 @@ func (repo *UserRepository) Logout(ctx context.Context, request *pb.LogoutReques
 
 func (repo *UserRepository) GetFollowersByUserID(ctx context.Context, request *pb.FollowersRequest) (*pb.FollowersResponse, error) {
 	rows, err := repo.Db.QueryContext(ctx,
-		`SELECT id, username, full_name FROM followers WHERE user_id = $1`,
+		`SELECT id, username, full_name FROM followers WHERE user_id = $1 and deleted_at = 0`,
 		request.UserId,
 	)
 	if err != nil {
@@ -274,4 +280,101 @@ func (repo *UserRepository) GetFollowersByUserID(ctx context.Context, request *p
 	}
 
 	return &pb.FollowersResponse{Followers: followers}, nil
+}
+
+func (repo *UserRepository) Follow(ctx context.Context, req *pb.FollowRequest) (*pb.FollowResponce, error) {
+	res := pb.FollowResponce{}
+	err := repo.Db.QueryRow(`
+	INSERT INTO
+	  Followers(
+		follower_id,
+		following_id
+	  )
+	  VALUES(
+		$1,
+		$2  
+	  )
+	  Returning
+		follower_id,
+		following_id,
+		followed_at
+	`, req.FollowerId, req.FollowingId).Scan(
+		&res.FollowerId,
+		&res.FollowingId,
+		&res.FollowedAt,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (repo *UserRepository) FollowersUsers(ctx context.Context, req *pb.FollowersRequest) (*pb.FollowersResponce, error) {
+	rows, err := repo.Db.Query(`
+	SELECT
+	  following_id
+	FROM
+	  Followers
+	WHERE
+	  follower_id = $1
+	OFFSET $2
+	LIMIT $3
+	and deleted_at is null
+	`, req.UserId, (req.Page-1)*req.Limit, req.Limit)
+
+	if err != nil {
+		return nil, err
+	}
+
+	var followers []*pb.Follower
+	for rows.Next() {
+		var userId string
+		err = rows.Scan(&userId)
+		if err != nil {
+			return nil, err
+		}
+		var follower pb.Follower
+		err = repo.Db.QueryRow(`
+	  SELECT
+		id,
+		username,
+		full_name
+	  FROM
+		Users
+	  WHERE
+		id = $1 and deleted_at is null
+	  `, userId).Scan(
+			&follower.Id,
+			&follower.UserName,
+			&follower.FullName,
+		)
+
+		if err != nil {
+			return nil, err
+		}
+
+		followers = append(followers, &follower)
+	}
+	var total int32
+	err = repo.Db.QueryRow(`
+	SELECT
+	  COUNT(*)
+	FROM
+	  Followers
+	WHERE
+	  follower_id = $1 and 
+	  deleted_at is null
+	`, req.UserId).Scan(&total)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.FollowersResponce{
+		Followers: followers,
+		Total:     total,
+		Page:      req.Page,
+		Limit:     req.Limit,
+	}, nil
 }

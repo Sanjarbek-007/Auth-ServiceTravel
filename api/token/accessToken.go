@@ -16,7 +16,6 @@ func GeneratedAccessJWTToken(req *user.RegisterResponse, tok *user.Token) error 
 
 	token := *jwt.New(jwt.SigningMethodHS256)
 
-	//payload
 	claims := token.Claims.(jwt.MapClaims)
 	claims["user_id"] = req.Id
 	claims["iat"] = time.Now().Unix()

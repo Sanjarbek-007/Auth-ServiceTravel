@@ -7,6 +7,8 @@ import (
 
 	// "Auth-Service/api/middleware"
 
+	// "Auth-Service/api/middleware"
+
 	"github.com/gin-gonic/gin"
 	files "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
@@ -17,7 +19,7 @@ import (
 // @description API service
 // @host localhost:8081
 // @BasePath /
-// @securityDefinitions.apikey BearerAuth
+// @securityDefinitions.apikey ApiKeyAuth
 // @in header
 // @name Authorization
 func NewRouter(handler *handlers.Handler) *gin.Engine {
@@ -25,18 +27,20 @@ func NewRouter(handler *handlers.Handler) *gin.Engine {
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(files.Handler))
 
 	// API routes
-	user := r.Group("/auth")
+	auth := r.Group("/auth")
 	{
-		user.POST("/register", handler.Register)
-		user.POST("/login", handler.Login)
-	}
-	auth := r.Group("/user")
-	auth.Use(middleware.AuthMiddleware)
-	{
+		auth.POST("/register", handler.Register)
+		auth.POST("/login", handler.Login)
 		auth.POST("/refresh", handler.Refresh)
-    	auth.GET("/profile/:user_id", handler.Profile)
-		auth.PUT("/profileUpdate/:user_id", handler.UpdateProfile)
-    	auth.DELETE("/users/:user_id", handler.Delete)
+	}
+	user := r.Group("/user")
+	user.Use(middleware.AuthMiddleware())
+	{
+		user.GET("/profile/:user_id", handler.Profile)
+		user.PUT("/profileUpdate/:user_id", handler.UpdateProfile)
+		user.DELETE("/users/:user_id", handler.Delete)
+		user.POST("/user/:user_id/follow", handler.FollowUser)
+		user.GET("/user/:user_id/followers", handler.FollowersUsers)
 	}
 
 	return r

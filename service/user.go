@@ -46,3 +46,11 @@ func (service *UserService) ResetPassword(ctx context.Context, in *pb.ResetPassw
 func (service *UserService) Logout(ctx context.Context, in *pb.LogoutRequest) (*pb.LogoutResponse, error) {
 	return service.UserRepo.Logout(ctx, in)
 }
+
+func (service *UserService) FollowUser(ctx context.Context, in *pb.FollowRequest) (*pb.FollowResponce, error) {
+	return service.UserRepo.Follow(ctx, in)
+}
+
+func (service *UserService) FollowersUsers(ctx context.Context, in *pb.FollowersRequest) (*pb.FollowersResponce, error) {
+	return service.UserRepo.FollowersUsers(ctx, in)
+}

@@ -56,6 +56,37 @@ definitions:
       refresh_token:
         type: string
     type: object
+  users.FollowResponce:
+    properties:
+      followed_at:
+        type: string
+      follower_id:
+        type: string
+      following_id:
+        type: string
+    type: object
+  users.Follower:
+    properties:
+      full_name:
+        type: string
+      id:
+        type: string
+      user_name:
+        type: string
+    type: object
+  users.FollowersResponce:
+    properties:
+      followers:
+        items:
+          $ref: '#/definitions/users.Follower'
+        type: array
+      limit:
+        type: integer
+      page:
+        type: integer
+      total:
+        type: integer
+    type: object
   users.RegisterRequest:
     properties:
       email:
@@ -125,6 +156,38 @@ paths:
       summary: Login a user
       tags:
       - Auth
+  /auth/refresh:
+    post:
+      description: it changes your access token
+      parameters:
+      - description: token
+        in: body
+        name: userinfo
+        required: true
+        schema:
+          $ref: '#/definitions/users.CheckRefreshTokenRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/users.Token'
+        "400":
+          description: Invalid date
+          schema:
+            type: string
+        "401":
+          description: Invalid token
+          schema:
+            type: string
+        "500":
+          description: error while reading from server
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: Refresh token
+      tags:
+      - Auth
   /auth/register:
     post:
       consumes:
@@ -157,6 +220,68 @@ paths:
       summary: Register a new user
       tags:
       - Auth
+  /user/{user_id}/follow:
+    post:
+      description: you can follow another user
+      parameters:
+      - description: user_id
+        in: path
+        name: user_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/users.FollowResponce'
+        "400":
+          description: Invalid data
+          schema:
+            type: string
+        "500":
+          description: error while reading from server
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: follow user
+      tags:
+      - users
+  /user/{user_id}/followers:
+    get:
+      description: you can see your followers
+      parameters:
+      - description: user_id
+        in: path
+        name: user_id
+        required: true
+        type: string
+      - description: Number of users to fetch
+        in: query
+        name: limit
+        type: string
+      - description: Number of users to omit
+        in: query
+        name: page
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/users.FollowersResponce'
+        "400":
+          description: Invalid data
+          schema:
+            type: string
+        "500":
+          description: error while reading from server
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: get followers
+      tags:
+      - users
   /user/profile/{user_id}:
     get:
       consumes:
@@ -229,38 +354,6 @@ paths:
       summary: Update user profile
       tags:
       - User
-  /user/refresh:
-    post:
-      description: it changes your access token
-      parameters:
-      - description: token
-        in: body
-        name: userinfo
-        required: true
-        schema:
-          $ref: '#/definitions/users.CheckRefreshTokenRequest'
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/users.Token'
-        "400":
-          description: Invalid date
-          schema:
-            type: string
-        "401":
-          description: Invalid token
-          schema:
-            type: string
-        "500":
-          description: error while reading from server
-          schema:
-            type: string
-      security:
-      - ApiKeyAuth: []
-      summary: Refresh token
-      tags:
-      - auth
   /user/users/{user_id}:
     delete:
       description: you can delete your profile
@@ -289,7 +382,7 @@ paths:
       tags:
       - User
 securityDefinitions:
-  BearerAuth:
+  ApiKeyAuth:
     in: header
     name: Authorization
     type: apiKey
